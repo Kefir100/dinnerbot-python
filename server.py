@@ -3,6 +3,7 @@ import time
 import re
 import unicodedata
 from slackclient import SlackClient
+from bot import Bot
 
 class bcolors:
     HEADER = '\033[95m'
@@ -17,15 +18,15 @@ class bcolors:
 
 # instantiate Slack client
 slack_token = os.environ.get('SLACK_BOT_TOKEN')
-print('Your slack token is', slack_token)
 slack_client = SlackClient(slack_token)
+bot = Bot()
 
+print('Your slack token is', slack_token)
 # starterbot's user ID in Slack: value is assigned after the bot starts up
 starterbot_id = None
 
 # constants
 RTM_READ_DELAY = 1 # 1 second delay between reading from RTM
-EXAMPLE_COMMAND = "do"
 MENTION_REGEX = "^<@(|[WU].+?)>(.*)"
 
 def parse_bot_commands(slack_events):
@@ -50,26 +51,6 @@ def parse_direct_mention(message_text):
     # the first group contains the username, the second group contains the remaining message
     return (matches.group(1), matches.group(2).strip()) if matches else (None, None)
 
-def handle_command(command, channel):
-    """
-        Executes bot command if the command is known
-    """
-    # Default response is help text for the user
-    default_response = "Я пока знаю только одну команду. Попробуйте *{}*.".format(EXAMPLE_COMMAND)
-
-    # Finds and executes the given command, filling in response
-    response = None
-    # This is where you start to implement more commands!
-    if command.startswith(EXAMPLE_COMMAND):
-        response = "Привет мир" + chr(0x1f596)
-
-    # Sends the response back to the channel
-    slack_client.api_call(
-        "chat.postMessage",
-        channel=channel,
-        text=response or default_response
-    )
-
 if __name__ == "__main__":
     if slack_client.rtm_connect(with_team_state=False):
         print(bcolors.OKGREEN, "DinnerBot status: running", bcolors.ENDC)
@@ -79,7 +60,11 @@ if __name__ == "__main__":
         while True:
             command, channel = parse_bot_commands(slack_client.rtm_read())
             if command:
-                handle_command(command, channel)
+                slack_client.api_call(
+                    "chat.postMessage",
+                    channel=channel,
+                    text=bot.handle_command(command)
+                )
             time.sleep(RTM_READ_DELAY)
     else:
         print(bcolors.FAIL ,"Connection failed. Exception traceback printed above.", bcolors.ENDC)
